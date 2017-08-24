@@ -1,12 +1,12 @@
 path_data:
-choosed:C:\Users\Tomek\Desktop\ESP8266_AT-master\ESP8266_AT-master\bin\boot_v1.1.bin;0x00000;
-choosed:C:\Users\Tomek\Desktop\ESP8266_AT-master\ESP8266_AT-master\bin\v0.20\user1.bin;0x01000;
-choosed:C:\Users\Tomek\Desktop\ESP8266_AT-master\ESP8266_AT-master\bin\esp_init_data_default.bin;0x7c000;
-choosed:C:\Users\Tomek\Desktop\ESP8266_AT-master\ESP8266_AT-master\bin\blank.bin;0x7E000;
+choosed:C:\Users\Tomek\Desktop\ESP8266_NONOS_SDK-master\ESP8266_NONOS_SDK-master\bin\boot_v1.7.bin;0x00000;
+choosed:C:\Users\Tomek\Desktop\ESP8266_NONOS_SDK-master\ESP8266_NONOS_SDK-master\bin\at\512+512\user1.1024.new.2.bin;0x01000;
+choosed:C:\Users\Tomek\Desktop\ESP8266_NONOS_SDK-master\ESP8266_NONOS_SDK-master\bin\esp_init_data_default.bin;0xfc000;
+choosed:C:\Users\Tomek\Desktop\ESP8266_NONOS_SDK-master\ESP8266_NONOS_SDK-master\bin\blank.bin;0x7e000;
 empty:;;
 empty:;;
 empty:;;
-default_path:C:\Users\Tomek\Desktop\ESP8266_AT-master\ESP8266_AT-master\bin;
+default_path:C:\Users\Tomek\Desktop\ESP8266_NONOS_SDK-master\ESP8266_NONOS_SDK-master\bin;
 COM:
 com_port:4
 baudrate:0
