@@ -1,4 +1,5 @@
 #include <LEDMatrixDriver.hpp>
+#include "font.h"
 #define MODULES_X 5
 #define MODULES_Y 2
 #define MODULES_COUNT MODULES_X*MODULES_Y
@@ -18,7 +19,7 @@ void clearBuffer() {
 
 void setup() {
   lmd.setEnabled(true);
-  lmd.setIntensity(2);   // 0 = low, 10 = high
+  lmd.setIntensity(0);   // 0 = low, 10 = high
   clearBuffer();
 }
 
@@ -50,25 +51,31 @@ void redisplay() {
   lmd.display();
 }
 
-void draw5x4(int posY, int posX, char c) {
-
+void draw8x16(int posY, int posX, int number) {
+  for(int i=0; i<16; i++) {
+    for(int j=0; j<8; j++) {
+        FrameBuffer[posY+i][posX+j] = font8x16[number][i] & (1 << (7-j));
+    }  
+  }
 }
 
-int dx = 1, dy = -1;
-int posx = 6, posy = 10;
+int g=22,m=32,s=0;
+float last=0;
 
 void loop() {
-  FrameBuffer[posy][posx] = false;
+  if(millis()-last>=1000) { s++; last=millis(); }
+  if(s==60) { s=0; m++; } 
+  if(m==60) { m=0; g++; } 
+  if(g==24) { g=0; }
+  
+  draw8x16(0,0,g/10);
+  draw8x16(0,9,g%10);
+  draw8x16(0,23,m/10);
+  draw8x16(0,32,m%10);
 
-  posy+=dy;
-  posx+=dx;
-  FrameBuffer[posy][posx] = true;
-
-  if(posy <= 0) dy = 1;
-  if(posy >= 15) dy = -1;
-  if(posx <= 0) dx = 1;
-  if(posx >= 39) dx = -1;
-
+  FrameBuffer[5][20] = true; FrameBuffer[6][20] = true; FrameBuffer[5][19] = true; FrameBuffer[6][19] = true;
+  FrameBuffer[9][20] = true; FrameBuffer[10][20] = true; FrameBuffer[9][19] = true; FrameBuffer[10][19] = true;
+  
   redisplay();
-  delay(10);
+  delay(1000);
 }
