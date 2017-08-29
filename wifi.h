@@ -1,11 +1,8 @@
-#include "WiFiEsp.h"
 #include "WiFiEspUdp.h"
-#include "SoftwareSerial.h"
-SoftwareSerial Serial1(3, 2);
 
-char ssid[] = "ssid";
-char pass[] = "pass";
-int status = WL_IDLE_STATUS;
+#include "SoftwareSerial.h"
+SoftwareSerial ESP(2,3); // RX, TX
+
 char timeServer[] = "time.nist.gov";
 unsigned int localPort = 2390;
 const int NTP_PACKET_SIZE = 48;
@@ -16,6 +13,44 @@ WiFiEspUDP Udp;
 
 int g = 0, m = 0, s = 0;
 long int last = 0;
+
+boolean wyslij(char * Komenda_AT, char *Odpowiedz_AT, int czas_czekania) {
+  ESP.println(Komenda_AT);
+  delay(czas_czekania);
+  while (ESP.available() > 0) {
+    if (ESP.find(Odpowiedz_AT)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+void connectWiFi() {
+  while (!wyslij("AT", "OK", 100)) {
+    Serial.println("Błąd komunikacji z modułem");
+    delay(1000);
+  }
+  Serial.println("Komunikacja OK");
+
+  if (wyslij("AT+CWMODE=1", "OK", 500))
+    Serial.println("CWMODE - OK!");
+  if (wyslij("AT+CIPMODE=0", "OK", 500))
+    Serial.println("CIPMODE - OK!");
+  if (wyslij("AT+CIPMUX=1", "OK", 500))
+    Serial.println("CIPMUX - OK!");
+
+  if (wyslij("AT+CWJAP=\"Nigdy wiecej darmowego Wi-Fi\",\"Hulajnoga1999\"", "OK", 8000))
+    Serial.println("Polaczono z siecia!");
+  else
+    Serial.println("Błąd łączenia z siecią!");
+
+  if (wyslij("AT+CIPSERVER=1,80", "OK", 5000))
+    Serial.println("Uruchomiono serwer :)");
+
+  ESP.println("AT+CIFSR");
+  Serial.println(ESP.readString());
+  delay(200);  
+}
 
 void sendNTPpacket(char *ntpSrv) {
   // set all bytes in the buffer to 0
