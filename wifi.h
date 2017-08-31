@@ -15,25 +15,48 @@ ESP8266WebServer server(80);
 int g = 0, m = 0, s = 0;
 long int last = 0;
 
-const char INDEX_HTML[] =
-"<!DOCTYPE HTML>"
-"<html>"
-  "<head>"
+char *getHTMLContent() {
+  String html = "";
+  html +=
+    "<!DOCTYPE HTML>"
+    "<html>"
+    "<head>"
     "<meta name = \"viewport\" content = \"width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0\">"
     "<meta charset=\"utf-8\">"
     "<title>Sterownik LED</title>"
-  "</head>"
-  "<body>"
+    "</head>"
+    "<body>"
     "<h1>Sterownik zegara LED</h1>"
     "<FORM action=\"/\" method=\"post\">"
-      "<P>"
-        "Jasność:<br>"
-        "<input type=\"text\" name=\"LEDIntensity\">"
-        "<INPUT type=\"submit\" value=\"Send\">"
-      "</P>"
+    "<P>"
+    "Jasność: ";
+  html += EEPROM.read(0);
+  html +=   
+    "<br><input type=\"range\" name=\"LEDIntensity\" min=\"0\" max=\"10\" value=\"";
+  html += EEPROM.read(0);
+  html +=
+    "\"><input type=\"submit\" value=\"Zmień jasnosć\">"
+    "</P>"
     "</FORM>"
-  "</body>"
-"</html>";
+      "<FORM action=\"/\" method=\"post\">"
+    "<P><br><br>"
+    "ALARM 1: ";
+  html += "15:34";
+  html +=   
+    "<br><input type=\"time\" name=\"alarm1Time\">"
+    "<input type=\"submit\" value=\"Ustaw alarm #1\"><br>"
+    "<input type=\"radio\" name=\"alarm1Status\" value=\"on\" checked> Włącz"
+    "<input type=\"radio\" name=\"alarm1Status\" value=\"off\"> Wyłącz"
+    "</P>"
+    "</FORM>"
+    "</body>"
+    "</html>";
+
+  html += "\0";
+  char *arr = (char*) malloc((html.length() + 1) * sizeof(char));
+  html.toCharArray(arr, html.length() + 1);
+  return arr;
+}
 
 void connectWiFi() {
   Serial.print("Connecting to ");
@@ -82,14 +105,14 @@ unsigned long sendNTPpacket(IPAddress& address)
 
 void getNTPTime() {
   if (WiFi.status() != WL_CONNECTED) connectWiFi();
-  
+
   //get a random server from the pool
-  WiFi.hostByName(ntpServerName, timeServerIP); 
+  WiFi.hostByName(ntpServerName, timeServerIP);
 
   sendNTPpacket(timeServerIP); // send an NTP packet to a time server
   // wait to see if a reply is available
   delay(1000);
-  
+
   int cb = udp.parsePacket();
   if (!cb) {
     Serial.println("no packet yet");
@@ -137,17 +160,45 @@ void getNTPTime() {
   last = millis();
 }
 
-void handleRoot() {    
+void handleRoot() {
+  char *content;
+  
   if (server.hasArg("LEDIntensity")) {
     String LEDIntensity = server.arg("LEDIntensity");
     Serial.println(LEDIntensity);
     int ledI = LEDIntensity.toInt();
     EEPROM.write(0, ledI);
-    EEPROM.commit();
+    EEPROM.commit(); 
     lmd.setIntensity(EEPROM.read(0));
-    server.send(200, "text/html", INDEX_HTML);
+    content = getHTMLContent();
+    server.send(200, "text/html", content);
+  }
+  else if(server.hasArg("alarm1Time")) {
+    String alarm1Time = server.arg("alarm1Time");
+    int alarmHour = alarm1Time.substring(0,2).toInt();
+    int alarmMinute = alarm1Time.substring(3,5).toInt();
+    Serial.print(alarmHour);
+    Serial.print(":");
+    Serial.println(alarmMinute);
+    EEPROM.write(1, alarmHour);
+    EEPROM.commit(); 
+    EEPROM.write(2, alarmMinute);
+    EEPROM.commit();
+
+    String alarm1Status = server.arg("alarm1Status");
+    if(alarm1Status.equals("on"))
+      EEPROM.write(3, 1);
+    else
+      EEPROM.write(3, 0);
+    EEPROM.commit();
+    
+    content = getHTMLContent();
+    server.send(200, "text/html", content);
   }
   else {
-    server.send(200, "text/html", INDEX_HTML);
+    content = getHTMLContent();
+    server.send(200, "text/html", content);
   }
+
+  free(content);
 }

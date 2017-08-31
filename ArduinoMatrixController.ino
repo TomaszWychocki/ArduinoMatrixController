@@ -11,11 +11,16 @@ void displayText(String);
 /*
   EEPROM:
   0 - LED Intensity
+  1 - alarm 1 hour
+  2 - alarm 1 minute
+  3 - alarm 1 status
 */
 
 bool FrameBuffer[PIXELS_Y][PIXELS_X];
 LEDMatrixDriver lmd(MODULES_COUNT, 15); //CS MOSI=DIN
 long int lastSecond = 0;
+bool alarmOn = false;
+
 #include "wifi.h"
 
 void clearBuffer() {
@@ -122,6 +127,11 @@ void displayText(String text) {
     free(a[i]);
   free(a);
   clearBuffer();
+}
+
+void checkAlarm() {
+  if(g == EEPROM.read(1) && m == EEPROM.read(2) && s <= 5 && EEPROM.read(3) == 1)
+    alarmOn = true;
 }
 
 void loop() {
