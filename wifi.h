@@ -27,7 +27,17 @@ char *getHTMLContent() {
     "</head>"
     "<body>"
     "<h1>Sterownik zegara LED</h1>"
-    "<FORM action=\"/\" method=\"post\">"
+    "<h2>Godzina: ";
+  if(g < 10) html += "0";
+    html += g;
+  html += ":";
+  if(m < 10) html += "0";
+    html += m;
+  html += ":";
+  if(s < 10) html += "0";
+    html += s;
+  html +=
+    "</h2><FORM action=\"/\" method=\"post\">"
     "<P>"
     "Jasność: ";
   html += EEPROM.read(0);
@@ -40,13 +50,24 @@ char *getHTMLContent() {
     "</FORM>"
       "<FORM action=\"/\" method=\"post\">"
     "<P><br><br>"
-    "ALARM 1: ";
-  html += "15:34";
+    "Alarm 1: ";
+  if(EEPROM.read(1) < 10) html += "0";
+  html += EEPROM.read(1);
+  html += ":";
+  if(EEPROM.read(2) < 10) html += "0";
+  html += EEPROM.read(2);
   html +=   
     "<br><input type=\"time\" name=\"alarm1Time\">"
-    "<input type=\"submit\" value=\"Ustaw alarm #1\"><br>"
-    "<input type=\"radio\" name=\"alarm1Status\" value=\"on\" checked> Włącz"
-    "<input type=\"radio\" name=\"alarm1Status\" value=\"off\"> Wyłącz"
+    "<input type=\"submit\" value=\"Ustaw alarm #1\"><br>";
+  if(EEPROM.read(3) == 1)
+    html += 
+      "<input type=\"radio\" name=\"alarm1Status\" value=\"on\" checked> Włącz"
+      "<input type=\"radio\" name=\"alarm1Status\" value=\"off\"> Wyłącz";
+  else
+    html += 
+      "<input type=\"radio\" name=\"alarm1Status\" value=\"on\"> Włącz"
+      "<input type=\"radio\" name=\"alarm1Status\" value=\"off\" checked> Wyłącz";
+  html += 
     "</P>"
     "</FORM>"
     "</body>"
@@ -62,6 +83,7 @@ void connectWiFi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, pass);
+  displayText("Connecting to " + String(ssid), 15);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -70,13 +92,17 @@ void connectWiFi() {
   Serial.println("");
 
   Serial.println("WiFi connected");
+  displayText("WiFi connected", 15);
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  displayText("IP address: " + WiFi.localIP().toString(), 15);
 
   Serial.println("Starting UDP");
+  displayText("Starting UDP", 15);
   udp.begin(localPort);
   Serial.print("Local port: ");
   Serial.println(udp.localPort());
+  displayText("Local port: " + String(udp.localPort()), 15);
 }
 
 unsigned long sendNTPpacket(IPAddress& address)

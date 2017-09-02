@@ -7,13 +7,19 @@
 #define PIXELS_X MODULES_X*8
 #define PIXELS_Y MODULES_Y*8
 
-void displayText(String);
+void displayText(String, int);
 /*
   EEPROM:
   0 - LED Intensity
   1 - alarm 1 hour
   2 - alarm 1 minute
   3 - alarm 1 status
+
+  PINS:
+  DIN - D7
+  CS  - D8
+  CLK - D5
+  Buzzer - D1
 */
 
 bool FrameBuffer[PIXELS_Y][PIXELS_X];
@@ -39,8 +45,6 @@ void setup() {
   draw8x16(0, 23, m / 10);
   draw8x16(0, 32, m % 10);
   redisplay();
-
-  //displayText("Tomasz Wychocki");
 
   Serial.begin(115200);
   connectWiFi();
@@ -87,27 +91,33 @@ void draw8x16(int posY, int posX, int number) {
   }
 }
 
-void displayText(String text) {
+void displayText(String text, int speed) {
   bool **a;
   a = (bool **) malloc(7 * sizeof(bool *));
   for (int i = 0; i < 7; i++)
-    a[i] = (bool *) malloc(6 * text.length() * sizeof(bool));
+    a[i] = (bool *) malloc(7 * text.length() * sizeof(bool));
+
+  for (int i = 0; i < 7; i++)
+    for (int j = 0; j < (7 * text.length()); j++)
+      a[i][j] = false;
 
   clearBuffer();
   int posx = 0;
 
   for (int c = 0; c < text.length(); c++) {
+    int t = text[c] - 32;
+    if(t >= 65) t--;
     for (int i = 0; i < 7; i++) {
       for (int j = 0; j < 5; j++) {
-        a[i][j + posx] = font5x7[text[c] - 32][i] & (1 << (4 - j));
+        a[i][j + posx] = font5x7[t][i] & (1 << (4 - j));
       }
     }
-    posx += 8;
+    posx += 6;
   }
 
   posx = 0;
 
-  while (posx < 40 + (6 * text.length())) {
+  while (posx < (39 + (6 * text.length()))) {
     if (posx < 6 * text.length()) {
       for (int i = 0; i < 7; i++) {
         FrameBuffer[4 + i][39] = a[i][posx];
@@ -115,10 +125,10 @@ void displayText(String text) {
     }
     redisplay();
     posx++;
-    delay(100);
+    delay(speed);
     for (int i = 0; i < 7; i++) {
       for (int j = 1; j < 40; j++) {
-        FrameBuffer[i][j - 1] = FrameBuffer[i][j];
+        FrameBuffer[4 + i][j - 1] = FrameBuffer[4 + i][j];
       }
     }
   }
@@ -129,13 +139,13 @@ void displayText(String text) {
   clearBuffer();
 }
 
-void checkAlarm() {
+bool checkAlarm() {
   if(g == EEPROM.read(1) && m == EEPROM.read(2) && s <= 5 && EEPROM.read(3) == 1)
     alarmOn = true;
 }
 
 void loop() {
-  if (millis() - last >= 300000) {
+  if (millis() - last >= 1000) { //300000
     getNTPTime();
   }
 
@@ -163,10 +173,29 @@ void loop() {
   FrameBuffer[5][20] = true; FrameBuffer[6][20] = true; FrameBuffer[5][19] = true; FrameBuffer[6][19] = true;
   FrameBuffer[9][20] = true; FrameBuffer[10][20] = true; FrameBuffer[9][19] = true; FrameBuffer[10][19] = true;
 
-  redisplay();
-
   //----------------WEBSERVER-------------------
   server.handleClient();
-
+  //----------------WEBSERVER-------------------
+  
   delay(100);
+  checkAlarm();
+
+  if(alarmOn) {
+    tone(5,2000,100);
+    delay(100);
+    tone(5,2500,100);
+    delay(100);
+    tone(5,1500,100);
+
+    if(s % 2 == 0) {
+      for (int i = 0; i < PIXELS_Y; i++)
+        for (int j = 0; j < PIXELS_X; j++)
+          FrameBuffer[i][j] = !FrameBuffer[i][j];
+    }
+    lmd.setIntensity(10);
+  }
+  else
+    lmd.setIntensity(EEPROM.read(0));
+
+  redisplay();
 }
