@@ -2,8 +2,10 @@
 #include <WiFiUdp.h>
 #include <ESP8266WebServer.h>
 
-char ssid[] = "Nigdy wiecej darmowego Wi-Fi";
-char pass[] = "Hulajnoga1999";
+char ssid[50];
+char pass[50];
+const char *APssid = "Zegarek";
+const char *APpass = "ESPzegarek123";
 unsigned int localPort = 2390;
 IPAddress timeServerIP;
 const char* ntpServerName = "time.nist.gov";
@@ -69,6 +71,19 @@ char *getHTMLContent() {
       "<input type=\"radio\" name=\"alarm1Status\" value=\"off\" checked> Wyłącz";
   html += 
     "</P>"
+    "</FORM><br>"
+    "<FORM action=\"/\" method=\"post\">"
+    "<P>"
+    "Tekst do wyświetlenia"
+    "<br><input type=\"text\" name=\"displayText\">"
+    "</p><input type=\"submit\" value=\"Wyświetl\">"
+    "</FORM><br>"
+    "<FORM action=\"/\" method=\"post\">"
+    "<P>"
+    "Ustawienia WiFi"
+    "<br><input type=\"text\" name=\"ssid\" value=\"SSID\">"
+    "<br><input type=\"text\" name=\"pass\" value=\"PASS\">"
+    "</p><input type=\"submit\" value=\"Wyślij nowe dane\">"
     "</FORM>"
     "</body>"
     "</html>";
@@ -80,29 +95,56 @@ char *getHTMLContent() {
 }
 
 void connectWiFi() {
+  char c;
+  int i = 100;
+  while((c = EEPROM.read(i)) != 0) {
+    ssid[i-100] = c;  
+    i++;
+  }
+  ssid[i] = 0;
+
+  i = 150;
+  while((c = EEPROM.read(i)) != 0) {
+    pass[i-150] = c;  
+    i++;
+  }
+  pass[i] = 0;
+  
+  WiFi.mode(WIFI_STA);
+  
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, pass);
   displayText("Connecting to " + String(ssid), 15);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  int numberOfTries = 0;
+  while (WiFi.status() != WL_CONNECTED && numberOfTries++ < 10) {
     delay(500);
-    Serial.print(".");
+    Serial.println(WiFi.status());
   }
   Serial.println("");
 
-  Serial.println("WiFi connected");
-  displayText("WiFi connected", 15);
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  displayText("IP address: " + WiFi.localIP().toString(), 15);
-
-  Serial.println("Starting UDP");
-  displayText("Starting UDP", 15);
-  udp.begin(localPort);
-  Serial.print("Local port: ");
-  Serial.println(udp.localPort());
-  displayText("Local port: " + String(udp.localPort()), 15);
+  if(numberOfTries < 10) {
+    Serial.println("WiFi connected");
+    displayText("WiFi connected", 15);
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    displayText("IP address: " + WiFi.localIP().toString(), 15);
+  
+    Serial.println("Starting UDP");
+    displayText("Starting UDP", 15);
+    udp.begin(localPort);
+    Serial.print("Local port: ");
+    Serial.println(udp.localPort());
+    displayText("Local port: " + String(udp.localPort()), 15);
+  }
+  else {
+    Serial.println("WiFi connecting error");
+    displayText("WiFi connecting error", 15);
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(APssid, APpass);
+    displayText("Access point IP: " + WiFi.softAPIP().toString(), 15);
+  }
 }
 
 unsigned long sendNTPpacket(IPAddress& address)
@@ -211,12 +253,58 @@ void handleRoot() {
     EEPROM.write(2, alarmMinute);
     EEPROM.commit();
 
+    String t = "";
+    if(alarmHour < 10) t += "0";
+    t += alarmHour;
+    t += ":";
+    if(alarmMinute < 10) t += "0";
+    t += alarmMinute;
+
+    /*tone(1,1300,100);
+    delay(200);
+    noTone(1);*/
+
     String alarm1Status = server.arg("alarm1Status");
-    if(alarm1Status.equals("on"))
+    if(alarm1Status.equals("on")) {
       EEPROM.write(3, 1);
-    else
+      displayText("Ustawiono alarm na godzine " + t, 15);
+    }
+    else {
       EEPROM.write(3, 0);
+      displayText("Alarm wylaczony", 15);
+    }
     EEPROM.commit();
+    
+    content = getHTMLContent();
+    server.send(200, "text/html", content);
+  }
+  else if(server.hasArg("displayText")) {
+    String TextToDisplay = server.arg("displayText");
+    content = getHTMLContent();
+    server.send(200, "text/html", content);
+    /*tone(1,1500,200);
+    delay(200);
+    noTone(1);*/
+    displayText(TextToDisplay, 15);
+  }
+  else if(server.hasArg("ssid")) {
+    String wifiSSID = server.arg("ssid");
+    String wifiPASS = server.arg("pass");
+    int i;
+
+    for(i = 0; i < wifiSSID.length(); i++) {
+      EEPROM.write(100+i, wifiSSID[i]);
+      EEPROM.commit(); 
+    }
+    EEPROM.write(100+i, 0);
+    EEPROM.commit(); 
+
+    for(i = 0; i < wifiPASS.length(); i++) {
+      EEPROM.write(150+i, wifiPASS[i]);
+      EEPROM.commit(); 
+    }
+    EEPROM.write(150+i, 0);
+    EEPROM.commit(); 
     
     content = getHTMLContent();
     server.send(200, "text/html", content);

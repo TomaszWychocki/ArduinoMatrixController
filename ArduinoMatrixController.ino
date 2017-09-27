@@ -1,3 +1,5 @@
+//#include <Wire.h>
+//#include "RTClib.h"
 #include <LEDMatrixDriver.hpp>
 #include <EEPROM.h>
 #include "font.h"
@@ -19,11 +21,13 @@ void displayText(String, int);
   DIN - D7
   CS  - D8
   CLK - D5
-  Buzzer - D1
+  Buzzer - D3
 */
 
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 bool FrameBuffer[PIXELS_Y][PIXELS_X];
 LEDMatrixDriver lmd(MODULES_COUNT, 15); //CS MOSI=DIN
+//RTC_DS1307 RTC;
 long int lastSecond = 0;
 bool alarmOn = false;
 
@@ -36,6 +40,7 @@ void clearBuffer() {
 }
 
 void setup() {
+  //RTC.adjust(DateTime(__DATE__, __TIME__));
   EEPROM.begin(512);
   lmd.setEnabled(true);
   lmd.setIntensity(EEPROM.read(0));   // 0 = low, 10 = high
@@ -145,7 +150,7 @@ bool checkAlarm() {
 }
 
 void loop() {
-  if (millis() - last >= 1000) { //300000
+  if (millis() - last >= 300000) { //300000
     getNTPTime();
   }
 
@@ -181,12 +186,13 @@ void loop() {
   checkAlarm();
 
   if(alarmOn) {
-    tone(5,2000,100);
+    /*tone(1,2000,100);
     delay(100);
-    tone(5,2500,100);
+    tone(1,2500,100);
     delay(100);
-    tone(5,1500,100);
-
+    tone(1,1500,100);
+    delay(100);
+    noTone(1);*/
     if(s % 2 == 0) {
       for (int i = 0; i < PIXELS_Y; i++)
         for (int j = 0; j < PIXELS_X; j++)

@@ -1,4 +1,3 @@
 DIN - D7
 CS  - D8
 CLK - D5
-Buzzer - D1
