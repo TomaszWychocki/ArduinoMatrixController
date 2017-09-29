@@ -56,7 +56,7 @@ void setup() {
 
   server.on("/", handleRoot);
   server.begin();
-  
+
   getNTPTime();
 }
 
@@ -111,7 +111,7 @@ void displayText(String text, int speed) {
 
   for (int c = 0; c < text.length(); c++) {
     int t = text[c] - 32;
-    if(t >= 65) t--;
+    if (t >= 65) t--;
     for (int i = 0; i < 7; i++) {
       for (int j = 0; j < 5; j++) {
         a[i][j + posx] = font5x7[t][i] & (1 << (4 - j));
@@ -145,8 +145,33 @@ void displayText(String text, int speed) {
 }
 
 bool checkAlarm() {
-  if(g == EEPROM.read(1) && m == EEPROM.read(2) && s <= 5 && EEPROM.read(3) == 1)
+  if (g == EEPROM.read(1) && m == EEPROM.read(2) && s <= 5 && EEPROM.read(3) == 1)
     alarmOn = true;
+}
+
+float getTemperature() {
+  int i;
+  float average;
+  int samples[10];
+  float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
+
+  // acquire N samples
+  for (i = 0; i < 10; i++) {
+    samples[i] = analogRead(A0);
+    delay(10);
+  }
+
+  // average all the samples out
+  average = 0;
+  for (i = 0; i < 10; i++) {
+    average += samples[i];
+  }
+  average /= 10;
+
+  float R2 = 10000* (1023.0 / average - 1.0);
+  float logR2 = log(R2);
+  float T = (1.0 / (c1 + c2*logR2 + c3*logR2*logR2*logR2));
+  return T - 273.15;
 }
 
 void loop() {
@@ -181,19 +206,22 @@ void loop() {
   //----------------WEBSERVER-------------------
   server.handleClient();
   //----------------WEBSERVER-------------------
-  
-  delay(100);
+
+  if (!digitalRead(2)) {
+    displayText("Temperatura: " + String(getTemperature(), 1), 25);
+  }
+
   checkAlarm();
 
-  if(alarmOn) {
+  if (alarmOn) {
     /*tone(1,2000,100);
-    delay(100);
-    tone(1,2500,100);
-    delay(100);
-    tone(1,1500,100);
-    delay(100);
-    noTone(1);*/
-    if(s % 2 == 0) {
+      delay(100);
+      tone(1,2500,100);
+      delay(100);
+      tone(1,1500,100);
+      delay(100);
+      noTone(1);*/
+    if (s % 2 == 0) {
       for (int i = 0; i < PIXELS_Y; i++)
         for (int j = 0; j < PIXELS_X; j++)
           FrameBuffer[i][j] = !FrameBuffer[i][j];
@@ -205,3 +233,4 @@ void loop() {
 
   redisplay();
 }
+

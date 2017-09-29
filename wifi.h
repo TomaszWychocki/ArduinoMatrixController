@@ -316,3 +316,4 @@ void handleRoot() {
 
   free(content);
 }
+
