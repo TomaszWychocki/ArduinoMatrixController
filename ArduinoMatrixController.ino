@@ -1,91 +1,66 @@
-//#include <Wire.h>
-//#include "RTClib.h"
-#include <LEDMatrixDriver.hpp>
-#include <EEPROM.h>
+#include <MD_MAX72xx.h>
+#include <SPI.h>
 #include "font.h"
+
 #define MODULES_X 5
 #define MODULES_Y 2
 #define MODULES_COUNT MODULES_X*MODULES_Y
 #define PIXELS_X MODULES_X*8
 #define PIXELS_Y MODULES_Y*8
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+#define MAX_DEVICES 10
+#define CLK_PIN   13  // or SCK
+#define DATA_PIN  11  // or MOSI
+#define CS_PIN    10  // or SS
 
-void displayText(String, int);
-/*
-  EEPROM:
-  0 - LED Intensity
-  1 - alarm 1 hour
-  2 - alarm 1 minute
-  3 - alarm 1 status
-
-  PINS:
-  DIN - D7
-  CS  - D8
-  CLK - D5
-  Buzzer - D3
-*/
-
+MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 bool FrameBuffer[PIXELS_Y][PIXELS_X];
-LEDMatrixDriver lmd(MODULES_COUNT, 15); //CS MOSI=DIN
-//RTC_DS1307 RTC;
 long int lastSecond = 0;
-bool alarmOn = false;
+int g = 0, m = 0, s = 40;
 
-#include "wifi.h"
-
-void clearBuffer() {
+void clearBuffer()
+{
   for (int i = 0; i < PIXELS_Y; i++)
     for (int j = 0; j < PIXELS_X; j++)
       FrameBuffer[i][j] = false;
 }
 
+void resetMatrix(void)
+{
+  mx.control(MD_MAX72XX::INTENSITY, 0);
+  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+  mx.clear();
+}
+
 void setup() {
-  //RTC.adjust(DateTime(__DATE__, __TIME__));
-  EEPROM.begin(512);
-  lmd.setEnabled(true);
-  lmd.setIntensity(EEPROM.read(0));   // 0 = low, 10 = high
   clearBuffer();
+  mx.begin();
+  resetMatrix();  
   draw8x16(0, 0, g / 10);
   draw8x16(0, 9, g % 10);
   draw8x16(0, 23, m / 10);
   draw8x16(0, 32, m % 10);
   redisplay();
-
-  Serial.begin(115200);
-  connectWiFi();
-
-  server.on("/", handleRoot);
-  server.begin();
-
-  getNTPTime();
 }
 
 void redisplay() {
-  int x = 40, y = 0;
+  //mx.clear();
+  mx.update(MD_MAX72XX::OFF);
 
   for (int i = 0; i < PIXELS_Y / 2; i++) {
     for (int j = 0; j < PIXELS_X; j++) {
-      lmd.setPixel(x++, y, FrameBuffer[i][j]);
-      if (x >= 80) {
-        x = 40;
-        y++;
-      }
+      mx.setPoint(i, PIXELS_X - j - 1, FrameBuffer[i][j]);
     }
   }
-
-  x = 0; y = 0;
 
   for (int i = PIXELS_Y / 2; i < PIXELS_Y; i++) {
     for (int j = 0; j < PIXELS_X; j++) {
-      lmd.setPixel(x++, y, FrameBuffer[i][j]);
-      if (x >= 40) {
-        x = 0;
-        y++;
-      }
+      mx.setPoint(i - (PIXELS_Y / 2), PIXELS_X - j + 39, FrameBuffer[i][j]);
     }
   }
-
-  lmd.display();
+  
+  mx.update(MD_MAX72XX::ON);
 }
 
 void draw8x16(int posY, int posX, int number) {
@@ -144,44 +119,13 @@ void displayText(String text, int speed) {
   clearBuffer();
 }
 
-bool checkAlarm() {
-  if (g == EEPROM.read(1) && m == EEPROM.read(2) && s <= 5 && EEPROM.read(3) == 1)
-    alarmOn = true;
-}
-
-float getTemperature() {
-  int i;
-  float average;
-  int samples[10];
-  float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
-
-  // acquire N samples
-  for (i = 0; i < 10; i++) {
-    samples[i] = analogRead(A0);
-    delay(10);
-  }
-
-  // average all the samples out
-  average = 0;
-  for (i = 0; i < 10; i++) {
-    average += samples[i];
-  }
-  average /= 10;
-
-  float R2 = 10000* (1023.0 / average - 1.0);
-  float logR2 = log(R2);
-  float T = (1.0 / (c1 + c2*logR2 + c3*logR2*logR2*logR2));
-  return T - 273.15;
-}
-
 void loop() {
-  if (millis() - last >= 300000) { //300000
-    getNTPTime();
-  }
-
   if (millis() - lastSecond >= 1000) {
     s++;
     lastSecond = millis();
+
+    redisplay();
+    clearBuffer();
   }
   if (s == 60) {
     s = 0;
@@ -202,35 +146,5 @@ void loop() {
 
   FrameBuffer[5][20] = true; FrameBuffer[6][20] = true; FrameBuffer[5][19] = true; FrameBuffer[6][19] = true;
   FrameBuffer[9][20] = true; FrameBuffer[10][20] = true; FrameBuffer[9][19] = true; FrameBuffer[10][19] = true;
-
-  //----------------WEBSERVER-------------------
-  server.handleClient();
-  //----------------WEBSERVER-------------------
-
-  if (!digitalRead(2)) {
-    displayText("Temperatura: " + String(getTemperature(), 1), 25);
-  }
-
-  checkAlarm();
-
-  if (alarmOn) {
-    /*tone(1,2000,100);
-      delay(100);
-      tone(1,2500,100);
-      delay(100);
-      tone(1,1500,100);
-      delay(100);
-      noTone(1);*/
-    if (s % 2 == 0) {
-      for (int i = 0; i < PIXELS_Y; i++)
-        for (int j = 0; j < PIXELS_X; j++)
-          FrameBuffer[i][j] = !FrameBuffer[i][j];
-    }
-    lmd.setIntensity(10);
-  }
-  else
-    lmd.setIntensity(EEPROM.read(0));
-
-  redisplay();
 }
 
