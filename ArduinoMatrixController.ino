@@ -1,5 +1,7 @@
 #include <MD_MAX72xx.h>
 #include <SPI.h>
+#include <Wire.h>
+#include "RTClib.h"
 #include "font.h"
 
 #define MODULES_X 5
@@ -14,6 +16,7 @@
 #define CS_PIN    10  // or SS
 
 MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+RTC_DS1307 RTC;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 bool FrameBuffer[PIXELS_Y][PIXELS_X];
 long int lastSecond = 0;
@@ -36,7 +39,9 @@ void resetMatrix(void)
 void setup() {
   clearBuffer();
   mx.begin();
-  resetMatrix();  
+  resetMatrix(); 
+  Wire.begin();
+  RTC.begin(); 
   draw8x16(0, 0, g / 10);
   draw8x16(0, 9, g % 10);
   draw8x16(0, 23, m / 10);
@@ -121,22 +126,14 @@ void displayText(String text, int speed) {
 
 void loop() {
   if (millis() - lastSecond >= 1000) {
-    s++;
     lastSecond = millis();
+
+    DateTime now = RTC.now();
+    g = now.hour();
+    m = now.minute();
 
     redisplay();
     clearBuffer();
-  }
-  if (s == 60) {
-    s = 0;
-    m++;
-  }
-  if (m == 60) {
-    m = 0;
-    g++;
-  }
-  if (g == 24) {
-    g = 0;
   }
 
   draw8x16(0, 0, g / 10);
